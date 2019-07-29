@@ -1,0 +1,75 @@
+version: '3.4'
+
+networks:
+  frontend:
+  backend:
+
+services:
+  catalog: 
+    build:
+      context: .\EventBriteAssignment
+      dockerfile: Dockerfile
+    image: eventbrite/catalogapi
+    environment: 
+      DatabaseServer: mssqlserver
+      DatabaseName: eventCatalogDb
+      DatabaseUser: sa
+      DatabaseUserPassword: EventsApi(!)
+      ExternalCatalogBaseUrl: http://localhost:5088
+    ports:
+      - "5088:80"
+    container_name: catalogapi
+    networks: 
+      - backend
+      - frontend
+    depends_on:
+      - mssqlserver
+
+  tokenservice:
+    image: eventbrite/tokenserviceapi
+    build:
+      context: .\TokenServiceApi
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      MvcClient: http://localhost:5090
+    ports:
+      - "5092:80"
+    container_name: tokenapi
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      - mssqlserver
+
+  webmvc:
+    build:
+      context: .\WebMvc
+      dockerfile: Dockerfile
+    image: eventbrite/webmvc
+    environment: 
+      CatalogUrl: http://catalog
+      IdentityUrl: http://192.168.1.159:5092
+      CallbackUrl: http://localhost:5090
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5090:80"
+    container_name: webeventstore
+    networks: 
+      - frontend
+    depends_on:
+      - mssqlserver
+      - tokenservice
+      - catalog
+
+
+  mssqlserver:
+    image: "microsoft/mssql-server-linux:latest"
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: EventsApi(!)
+    container_name: catalogdb
+    ports: 
+      - "1451:1433"
+    networks:
+      - backend
